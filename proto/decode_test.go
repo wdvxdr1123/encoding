@@ -145,3 +145,23 @@ func BenchmarkDecodeSlice(b *testing.B) {
 	}
 
 }
+
+func TestIssue110(t *testing.T) {
+	type message struct {
+		A *uint32 `protobuf:"fixed32,1,opt"`
+	}
+
+	var a uint32 = 0x41c06db4
+	data, _ := Marshal(message{
+		A: &a,
+	})
+
+	var m message
+	err := Unmarshal(data, &m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if *m.A != 0x41c06db4 {
+		t.Errorf("m.A mismatch, want 0x41c06db4 but got %x", m.A)
+	}
+}

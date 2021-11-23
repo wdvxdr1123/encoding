@@ -390,3 +390,26 @@ func makeFixed64(v uint64) []byte {
 	binary.LittleEndian.PutUint64(b[:], v)
 	return b[:]
 }
+
+func TestIssue106(t *testing.T) {
+	m1 := struct {
+		I uint32
+	}{I: ^uint32(0)}
+
+	m2 := struct {
+		I int32
+	}{}
+
+	b, err := Marshal(&m1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Unmarshal(b, &m2); err != nil {
+		t.Fatal(err)
+	}
+
+	if m2.I != -1 {
+		t.Error("unexpected value:", m2.I)
+	}
+}

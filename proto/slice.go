@@ -119,7 +119,7 @@ func sliceDecodeFuncOf(t reflect.Type, r *repeatedField) decodeFunc {
 func alignedSize(t reflect.Type) uintptr {
 	a := t.Align()
 	s := t.Size()
-	return align(uintptr(a), uintptr(s))
+	return align(uintptr(a), s)
 }
 
 func align(align, size uintptr) uintptr {

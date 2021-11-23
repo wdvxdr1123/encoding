@@ -68,11 +68,12 @@ func structCodecOf(t reflect.Type, seen map[reflect.Type]*codec) *codec {
 			number: uint16(number),
 			offset: uint32(f.Offset),
 		}
-
+		var wire wireType
 		if tag, ok := f.Tag.Lookup("protobuf"); ok {
 			t, err := parseStructTag(tag)
 			if err == nil {
 				field.number = uint16(t.fieldNumber)
+				wire = wireType(t.wireType)
 				if t.repeated {
 					field.flags |= repeated
 				}
@@ -83,16 +84,16 @@ func structCodecOf(t reflect.Type, seen map[reflect.Type]*codec) *codec {
 				case Fixed32:
 					switch baseKindOf(f.Type) {
 					case reflect.Uint32:
-						field.codec = &fixed32Codec
+						field.codec = fixPtrCodec(f.Type, &fixed32Codec)
 					case reflect.Float32:
-						field.codec = &float32Codec
+						field.codec = fixPtrCodec(f.Type, &float32Codec)
 					}
 				case Fixed64:
 					switch baseKindOf(f.Type) {
 					case reflect.Uint64:
-						field.codec = &fixed64Codec
+						field.codec = fixPtrCodec(f.Type, &fixed64Codec)
 					case reflect.Float64:
-						field.codec = &float64Codec
+						field.codec = fixPtrCodec(f.Type, &float64Codec)
 					}
 				}
 			}
@@ -116,6 +117,7 @@ func structCodecOf(t reflect.Type, seen map[reflect.Type]*codec) *codec {
 					field.flags |= repeated
 					field.codec = codecOf(elem, seen)
 					field.codec = sliceCodecOf(f.Type, field, seen)
+					field.codec.wire = wire
 				}
 
 			case reflect.Map:
@@ -141,7 +143,7 @@ func structCodecOf(t reflect.Type, seen map[reflect.Type]*codec) *codec {
 			}
 		}
 
-		field.tagsize = uint8(sizeOfTag(fieldNumber(field.number), wireType(field.codec.wire)))
+		field.tagsize = uint8(sizeOfTag(fieldNumber(field.number), field.codec.wire))
 		fields = append(fields, field)
 		number++
 	}
@@ -161,6 +163,18 @@ func baseTypeOf(t reflect.Type) reflect.Type {
 		t = t.Elem()
 	}
 	return t
+}
+
+func fixPtrCodec(t reflect.Type, c *codec) *codec {
+	if t.Kind() == reflect.Ptr {
+		p := new(codec)
+		p.wire = c.wire
+		p.size = pointerSizeFuncOf(t, c)
+		p.encode = pointerEncodeFuncOf(t, c)
+		p.decode = pointerDecodeFuncOf(t, c)
+		c = p
+	}
+	return c
 }
 
 func structSizeFuncOf(t reflect.Type, fields []structField) sizeFunc {
